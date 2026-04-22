@@ -1,0 +1,10 @@
+size,status,search_time_s,plan_length
+2,solved,0.0005,6
+3,solved,0.0032,10
+4,solved,0.0360,13
+5,solved,0.3700,16
+6,solved,2.4000,18
+7,solved,2.4000,23
+8,timeout,,
+9,timeout,,
+10,timeout,,

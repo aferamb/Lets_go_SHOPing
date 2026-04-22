@@ -1,0 +1,102 @@
+; Emergency logistics domain for PL2 exercise 1.1.
+
+(defdomain ubermedics_basic
+  (
+    (:operator (!fly-drone ?d ?from ?to)
+      ((drone-at ?d ?from))
+      ((drone-at ?d ?from))
+      ((drone-at ?d ?to)))
+
+    (:operator (!pick-up-left ?d ?b ?loc)
+      ((drone-at ?d ?loc)
+       (crate-at ?b ?loc)
+       (arm-free-left ?d))
+      ((crate-at ?b ?loc)
+       (arm-free-left ?d))
+      ((carrying-left ?d ?b)))
+
+    (:operator (!pick-up-right ?d ?b ?loc)
+      ((drone-at ?d ?loc)
+       (crate-at ?b ?loc)
+       (arm-free-right ?d))
+      ((crate-at ?b ?loc)
+       (arm-free-right ?d))
+      ((carrying-right ?d ?b)))
+
+    (:operator (!deliver-left ?d ?b ?p ?loc ?content)
+      ((drone-at ?d ?loc)
+       (person-at ?p ?loc)
+       (carrying-left ?d ?b)
+       (crate-has ?b ?content)
+       (need ?p ?content))
+      ((carrying-left ?d ?b)
+       (need ?p ?content))
+      ((arm-free-left ?d)
+       (person-has ?p ?content)))
+
+    (:operator (!deliver-right ?d ?b ?p ?loc ?content)
+      ((drone-at ?d ?loc)
+       (person-at ?p ?loc)
+       (carrying-right ?d ?b)
+       (crate-has ?b ?content)
+       (need ?p ?content))
+      ((carrying-right ?d ?b)
+       (need ?p ?content))
+      ((arm-free-right ?d)
+       (person-has ?p ?content)))
+
+    (:method (deliver-all)
+      pending-need
+      (:first (need ?person ?content))
+      ((deliver-need ?person ?content)
+       (deliver-all))
+
+      all-delivered
+      ()
+      ())
+
+    (:method (deliver-need ?person ?content)
+      choose-drone-and-crate
+      ((person-at ?person ?target)
+       (drone ?drone)
+       (drone-at ?drone ?where)
+       (crate ?crate)
+       (crate-at ?crate depot)
+       (crate-has ?crate ?content))
+      ((move-drone ?drone depot)
+       (pickup-crate ?drone ?crate depot)
+       (move-drone ?drone ?target)
+       (deliver-crate ?drone ?crate ?person ?target ?content)
+       (move-drone ?drone depot)))
+
+    (:method (move-drone ?drone ?to)
+      already-there
+      ((drone-at ?drone ?to))
+      ()
+
+      fly-there
+      ((drone-at ?drone ?from)
+       (different ?from ?to))
+      ((!fly-drone ?drone ?from ?to)))
+
+    (:method (pickup-crate ?drone ?crate ?loc)
+      use-left-arm
+      ((arm-free-left ?drone))
+      ((!pick-up-left ?drone ?crate ?loc))
+
+      use-right-arm
+      ((arm-free-right ?drone))
+      ((!pick-up-right ?drone ?crate ?loc)))
+
+    (:method (deliver-crate ?drone ?crate ?person ?loc ?content)
+      from-left-arm
+      ((carrying-left ?drone ?crate))
+      ((!deliver-left ?drone ?crate ?person ?loc ?content))
+
+      from-right-arm
+      ((carrying-right ?drone ?crate))
+      ((!deliver-right ?drone ?crate ?person ?loc ?content)))
+
+    (:- (same ?x ?x) nil)
+    (:- (different ?x ?y) ((not (same ?x ?y))))
+  ))
