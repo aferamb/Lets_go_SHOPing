@@ -46,7 +46,26 @@
        (person-has ?p ?content)))
 
     (:method (deliver-all)
-      pending-need
+      two-pending-needs
+      ((need ?person1 ?content1)
+       (need ?person2 ?content2)
+       (person-at ?person1 ?target1)
+       (person-at ?person2 ?target2)
+       (drone ?drone)
+       (crate ?crate1)
+       (crate-at ?crate1 depot)
+       (crate-has ?crate1 ?content1)
+       (crate ?crate2)
+       (crate-at ?crate2 depot)
+       (crate-has ?crate2 ?content2)
+       (different-need ?person1 ?content1 ?person2 ?content2)
+       (different ?crate1 ?crate2))
+      ((deliver-two-needs ?drone
+                          ?crate1 ?person1 ?target1 ?content1
+                          ?crate2 ?person2 ?target2 ?content2)
+       (deliver-all))
+
+      one-pending-need
       (:first (need ?person ?content))
       ((deliver-need ?person ?content)
        (deliver-all))
@@ -67,6 +86,30 @@
        (pickup-crate ?drone ?crate depot)
        (move-drone ?drone ?target)
        (deliver-crate ?drone ?crate ?person ?target ?content)
+       (move-drone ?drone depot)))
+
+    (:method (deliver-two-needs ?drone
+                                ?crate1 ?person1 ?target1 ?content1
+                                ?crate2 ?person2 ?target2 ?content2)
+      same-target
+      ((same ?target1 ?target2))
+      ((move-drone ?drone depot)
+       (!pick-up-left ?drone ?crate1 depot)
+       (!pick-up-right ?drone ?crate2 depot)
+       (move-drone ?drone ?target1)
+       (!deliver-left ?drone ?crate1 ?person1 ?target1 ?content1)
+       (!deliver-right ?drone ?crate2 ?person2 ?target1 ?content2)
+       (move-drone ?drone depot))
+
+      different-targets
+      ((different ?target1 ?target2))
+      ((move-drone ?drone depot)
+       (!pick-up-left ?drone ?crate1 depot)
+       (!pick-up-right ?drone ?crate2 depot)
+       (move-drone ?drone ?target1)
+       (!deliver-left ?drone ?crate1 ?person1 ?target1 ?content1)
+       (move-drone ?drone ?target2)
+       (!deliver-right ?drone ?crate2 ?person2 ?target2 ?content2)
        (move-drone ?drone depot)))
 
     (:method (move-drone ?drone ?to)
@@ -99,4 +142,8 @@
 
     (:- (same ?x ?x) nil)
     (:- (different ?x ?y) ((not (same ?x ?y))))
+    (:- (different-need ?person1 ?content1 ?person2 ?content2)
+      ((different ?person1 ?person2)))
+    (:- (different-need ?person1 ?content1 ?person2 ?content2)
+      ((different ?content1 ?content2)))
   ))
