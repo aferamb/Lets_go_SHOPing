@@ -194,7 +194,7 @@ SCENARIOS: tuple[ScenarioSpec, ...] = (
     ),
     ScenarioSpec(
         name="s12_combined_regression",
-        description="Combined regression: re-selection, carriers and loose remainder in one run.",
+        description="Combined regression: re-selection and multi-stop carrier use in one run.",
         locations=("loc1", "loc2", "loc3"),
         needs={
             "loc1": {"food": 25, "medicine": 25},
@@ -204,9 +204,9 @@ SCENARIOS: tuple[ScenarioSpec, ...] = (
         depot_stock={"food": 33, "medicine": 30},
         carrier_capacities=(12, 50),
         expected_first_delivery="loc1",
-        expected_carrier_sequence=("carrier2", "carrier1"),
+        expected_carrier_sequence=("carrier2", "carrier2"),
         require_carrier=True,
-        require_loose=True,
+        require_multistop=True,
     ),
 )
 

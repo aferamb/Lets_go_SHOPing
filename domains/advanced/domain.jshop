@@ -127,19 +127,18 @@
        (move-drone ?d depot)))
 
     (:method (dispatch-carrier-trip ?loc ?total)
-      multistop-smallest-fitting
-      (:sort-by ?cap < (and (drone ?d)
-                            (drone-at ?d ?where)
-                            (carrier ?carrier)
-                            (carrier-at ?carrier depot)
-                            (carrier-capacity ?carrier ?cap)
-                            (call >= ?cap ?total)
-                            (not (smaller-sufficient-carrier ?total ?cap))
-                            (call > ?cap ?total)
-                            (assign ?residual (call - ?cap ?total))
-                            (pending-location ?extra ?extra-total)
-                            (different ?extra ?loc)
-                            (call <= ?extra-total ?residual)))
+      multistop-smallest-fitting-combined
+      (:sort-by ?priority < (and (drone ?d)
+                                 (drone-at ?d ?where)
+                                 (pending-location ?extra ?extra-total)
+                                 (different ?extra ?loc)
+                                 (assign ?combined-total (call + ?total ?extra-total))
+                                 (carrier ?carrier)
+                                 (carrier-at ?carrier depot)
+                                 (carrier-capacity ?carrier ?cap)
+                                 (call >= ?cap ?combined-total)
+                                 (not (smaller-sufficient-carrier ?combined-total ?cap))
+                                 (assign ?priority (call - (call * ?cap 1000) ?extra-total))))
       ((execute-two-stop-exact ?d ?carrier ?loc ?extra))
 
       one-stop-smallest-fitting
