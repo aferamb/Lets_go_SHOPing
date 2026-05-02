@@ -4,16 +4,35 @@ from __future__ import annotations
 import argparse
 import csv
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_DIR = Path(__file__).resolve().parent
+DEFAULT_BASELINE = ROOT / "references" / "pl1_part1_ex12_ff_baseline.csv"
+
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from basic_generator_lib import BasicProblemOptions, write_basic_problem
 from jshop_runner_lib import JSHOP2Error, run_jshop2
+
+
+@dataclass(frozen=True)
+class BaselineEntry:
+    status: str
+    time_s: float | None
+    plan_length: int | None
+
+
+@dataclass(frozen=True)
+class BaselineDataset:
+    path: Path
+    exists: bool
+    label: str
+    metric_name: str
+    rows: dict[int, BaselineEntry]
 
 
 def parse_args() -> argparse.Namespace:
@@ -33,22 +52,81 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--baseline",
-        default=str(ROOT / "references" / "pl1_part1_bfs_baseline.csv"),
-        help="Reference CSV from PL1 for comparison.",
+        default=str(DEFAULT_BASELINE),
+        help="Reference CSV from PL1 Exercise 1.2 (FF benchmark); legacy BFS CSVs are still accepted.",
     )
     return parser.parse_args()
 
 
-def load_baseline(path: str | Path) -> dict[int, dict[str, str]]:
+def _parse_optional_float(raw: str | None) -> float | None:
+    if raw is None or raw == "":
+        return None
+    return float(raw)
+
+
+def _parse_optional_int(raw: str | None) -> int | None:
+    if raw is None or raw == "":
+        return None
+    return int(raw)
+
+
+def load_baseline(path: str | Path) -> BaselineDataset:
     baseline_path = Path(path)
     if not baseline_path.exists():
-        return {}
+        return BaselineDataset(
+            path=baseline_path,
+            exists=False,
+            label="No baseline loaded",
+            metric_name="",
+            rows={},
+        )
+
     with baseline_path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
-        return {int(row["size"]): row for row in reader}
+        fieldnames = set(reader.fieldnames or [])
+
+        if not {"size", "status"}.issubset(fieldnames):
+            raise ValueError(f"Unsupported baseline CSV `{baseline_path}`: missing `size` or `status` columns.")
+
+        if {"ff_time_s", "plan_steps"}.issubset(fieldnames):
+            label = "PL1 Exercise 1.2 (FF)"
+            metric_name = "ff_time_s"
+            time_key = "ff_time_s"
+            plan_key = "plan_steps"
+        elif {"ff_time_s", "plan_length"}.issubset(fieldnames):
+            label = "PL1 Exercise 1.2 (FF)"
+            metric_name = "ff_time_s"
+            time_key = "ff_time_s"
+            plan_key = "plan_length"
+        elif {"search_time_s", "plan_length"}.issubset(fieldnames):
+            label = "PL1 BFS baseline (legacy)"
+            metric_name = "search_time_s"
+            time_key = "search_time_s"
+            plan_key = "plan_length"
+        else:
+            raise ValueError(
+                f"Unsupported baseline CSV `{baseline_path}`: expected FF or legacy BFS benchmark columns."
+            )
+
+        rows: dict[int, BaselineEntry] = {}
+        for row in reader:
+            size = int(row["size"])
+            rows[size] = BaselineEntry(
+                status=row["status"],
+                time_s=_parse_optional_float(row.get(time_key)),
+                plan_length=_parse_optional_int(row.get(plan_key)),
+            )
+
+    return BaselineDataset(
+        path=baseline_path,
+        exists=True,
+        label=label,
+        metric_name=metric_name,
+        rows=rows,
+    )
 
 
-def maybe_plot(csv_rows: list[dict[str, str]], baseline: dict[int, dict[str, str]], output_png: Path) -> bool:
+def maybe_plot(csv_rows: list[dict[str, str]], baseline: BaselineDataset, output_png: Path) -> bool:
     try:
         import matplotlib.pyplot as plt
     except Exception:
@@ -66,17 +144,20 @@ def maybe_plot(csv_rows: list[dict[str, str]], baseline: dict[int, dict[str, str
 
     baseline_sizes = []
     baseline_times = []
-    for size in sorted(baseline):
-        row = baseline[size]
-        if row["status"] == "solved" and row["search_time_s"]:
+    for size in sorted(baseline.rows):
+        row = baseline.rows[size]
+        if row.status == "solved" and row.time_s is not None:
             baseline_sizes.append(size)
-            baseline_times.append(float(row["search_time_s"]))
+            baseline_times.append(row.time_s)
     if baseline_sizes:
-        plt.plot(baseline_sizes, baseline_times, marker="s", label="PL1 BFS baseline")
+        plt.plot(baseline_sizes, baseline_times, marker="s", label=baseline.label)
 
     plt.xlabel("Problem size (l=p=c=g)")
     plt.ylabel("Planning time (s)")
-    plt.title("Basic SHOP2 benchmark vs PL1 BFS baseline")
+    if baseline_sizes:
+        plt.title(f"Basic SHOP2 benchmark vs {baseline.label}")
+    else:
+        plt.title("Basic SHOP2 benchmark")
     plt.grid(True, alpha=0.3)
     plt.legend()
     output_png.parent.mkdir(parents=True, exist_ok=True)
@@ -110,6 +191,7 @@ def main() -> int:
         problem_path = problems_dir / f"size_{size}.jshop"
         write_basic_problem(options, problem_path)
 
+        baseline_entry = baseline.rows.get(size)
         row = {
             "size": str(size),
             "problem_file": str(problem_path),
@@ -117,8 +199,12 @@ def main() -> int:
             "time_used_s": "",
             "plan_cost": "",
             "plan_length": "",
-            "baseline_search_time_s": baseline.get(size, {}).get("search_time_s", ""),
-            "baseline_plan_length": baseline.get(size, {}).get("plan_length", ""),
+            "baseline_time_s": "" if baseline_entry is None or baseline_entry.time_s is None else f"{baseline_entry.time_s:.6f}",
+            "baseline_plan_length": (
+                "" if baseline_entry is None or baseline_entry.plan_length is None else str(baseline_entry.plan_length)
+            ),
+            "baseline_label": baseline.label if baseline.rows else "",
+            "baseline_metric": baseline.metric_name,
             "error": "",
         }
         try:
@@ -152,15 +238,18 @@ def main() -> int:
         f"- Domain: `{domain_path}`",
         f"- Results dir: `{results_dir}`",
         f"- Timeout per stage: `{args.timeout}`",
+        f"- Baseline: `{baseline.label}`",
+        f"- Baseline CSV: `{baseline.path}`",
+        f"- Baseline metric: `{baseline.metric_name or 'n/a'}`",
         "",
-        "| size | status | time_used_s | plan_cost | plan_length | baseline_search_time_s | baseline_plan_length |",
+        "| size | status | time_used_s | plan_cost | plan_length | baseline_time_s | baseline_plan_length |",
         "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in rows:
         lines.append(
             f"| {row['size']} | {row['status']} | {row['time_used_s']} | "
             f"{row['plan_cost']} | {row['plan_length']} | "
-            f"{row['baseline_search_time_s']} | {row['baseline_plan_length']} |"
+            f"{row['baseline_time_s']} | {row['baseline_plan_length']} |"
         )
     png_path = results_dir / "benchmark_basic.png"
     plotted = maybe_plot(rows, baseline, png_path)

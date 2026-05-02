@@ -29,13 +29,15 @@ No external Python dependency is required. If `matplotlib` is installed, the bas
 - `scripts/run_course_layout.py`: compatibility runner for the professor-style fixed layout.
 - `scripts/generate_basic_shop.py`: random generator for the basic domain.
 - `scripts/generate_advanced_shop.py`: random generator for the advanced domain.
-- `scripts/benchmark_basic.py`: size sweep for exercise 1.1 plus PL1 baseline comparison.
+- `scripts/benchmark_basic.py`: size sweep for exercise 1.1 plus baseline comparison against PL1 exercise 1.2.
+- `scripts/export_pl1_ff_baseline.py`: normalize a PL1 FF benchmark CSV into the vendored baseline format used here.
 - `scripts/run_scenarios.py`: deterministic regression suite for exercise 1.2.
 - `scripts/jshop_runner_lib.py`: reusable JSHOP2 execution and parsing logic.
 - `scripts/basic_generator_lib.py`: reusable basic problem generator.
 - `scripts/advanced_generator_lib.py`: reusable advanced problem generator.
 - `scripts/scenarios_lib.py`: reusable advanced scenario definitions and validators.
-- `references/pl1_part1_bfs_baseline.csv`: baseline extracted from PL1.
+- `references/pl1_part1_ex12_ff_baseline.csv`: vendored baseline from PL1 part 1 exercise 1.2 (FF benchmark).
+- `references/pl1_part1_bfs_baseline.csv`: legacy BFS baseline kept only for backward-compatible manual runs.
 - `vendor/jshop2/console/`: vendored JSHOP2 console runtime.
 
 ## Python Module Policy
@@ -76,6 +78,8 @@ Run the basic benchmark:
 ```bash
 python3 scripts/benchmark_basic.py --min-size 2 --max-size 6 --step 1 --results-dir .cache/bench_basic
 ```
+
+By default, this benchmark compares SHOP2 against the vendored **PL1 part 1 exercise 1.2 FF baseline** in `references/pl1_part1_ex12_ff_baseline.csv`.
 
 ## Course-Compatible Workflow
 
@@ -179,6 +183,18 @@ Run the short benchmark used in the report:
 ```bash
 python3 scripts/benchmark_basic.py --min-size 2 --max-size 6 --step 1 --results-dir .cache/bench_basic
 ```
+
+Regenerate the vendored PL1 FF baseline from the PL1 repository:
+
+```bash
+python3 scripts/export_pl1_ff_baseline.py
+```
+
+`benchmark_basic.py` accepts three baseline formats through `--baseline`:
+
+- normalized FF baselines with `ff_time_s` and `plan_length`
+- raw PL1 `benchmark_ff_*.csv` files with `ff_time_s` and `plan_steps`
+- the legacy BFS CSV with `search_time_s`
 
 ## Notes
 
