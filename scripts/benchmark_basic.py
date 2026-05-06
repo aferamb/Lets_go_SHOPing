@@ -38,7 +38,7 @@ class BaselineDataset:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Benchmark the basic SHOP2 domain with growing instance sizes.")
     parser.add_argument("--min-size", type=int, default=2, help="Minimum size with l=p=c=g.")
-    parser.add_argument("--max-size", type=int, default=8, help="Maximum size with l=p=c=g.")
+    parser.add_argument("--max-size", type=int, default=60, help="Maximum size with l=p=c=g.")
     parser.add_argument("--step", type=int, default=1, help="Size step.")
     parser.add_argument("--drones", type=int, default=1, help="Number of drones.")
     parser.add_argument("--carriers", type=int, default=0, help="Compatibility flag from PL1.")

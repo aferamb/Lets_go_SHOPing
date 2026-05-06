@@ -34,8 +34,12 @@ class AdvancedRandomOptions:
     problem_name: str | None = None
 
 
-def _carrier_move_cost(capacity: int) -> int:
-    return 50 + capacity // 10
+def _carrier_move_cost(capacity: int) -> float:
+    return 50 + (capacity / 10)
+
+
+def _format_jshop_number(value: int | float) -> str:
+    return format(value, "g")
 
 
 def _validate_advanced_problem(problem: AdvancedProblem) -> None:
@@ -91,7 +95,8 @@ def render_advanced_problem(problem: AdvancedProblem) -> str:
         lines.append(f"    (carrier-at {carrier_name} {location})")
         lines.append(f"    (carrier-capacity {carrier_name} {capacity})")
         lines.append(f"    (carrier-free {carrier_name} {capacity})")
-        lines.append(f"    (carrier-move-cost {carrier_name} {_carrier_move_cost(capacity)})")
+        move_cost = _format_jshop_number(_carrier_move_cost(capacity))
+        lines.append(f"    (carrier-move-cost {carrier_name} {move_cost})")
         for content in ADVANCED_CONTENT_TYPES:
             lines.append(f"    (carrier-load {carrier_name} {content} 0)")
 

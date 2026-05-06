@@ -139,6 +139,7 @@ The current implementation reuses those ideas where they are useful, but it does
 ### Advanced domain
 
 - The advanced practice needs numeric quantities for stock, needs, free carrier capacity, and carrier load.
+- Carrier trip costs follow the statement literally: `50 + capacity / 10`, including decimal values for capacities that are not multiples of 10.
 - For that reason the domain uses `call`, `assign`, arithmetic comparisons, and `:sort-by`.
 - The domain also uses `:immediate` in the transport routes, similar in spirit to the logistics example.
 - It uses axioms such as `pending-location`, `has-sufficient-carrier`, and `smaller-sufficient-carrier` to support carrier selection.
@@ -177,6 +178,8 @@ Run the full advanced suite:
 ```bash
 python3 scripts/run_scenarios.py --suite advanced --results-dir .cache/scenarios_full
 ```
+
+This is the required regression gate for exercise 1.2 before packaging a final delivery.
 
 Run the short benchmark used in the report:
 

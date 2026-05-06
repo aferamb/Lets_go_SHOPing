@@ -38,8 +38,12 @@ class SmokeTests(unittest.TestCase):
 
     def test_selected_advanced_scenarios(self) -> None:
         for scenario_name in (
+            "s01_no_carrier_loose",
             "s02_single_carrier",
+            "s03_mixed_contents_same_carrier",
             "s04_carrier_then_loose_remainder",
+            "s08_choose_largest_if_none_fit",
+            "s10_serve_highest_need_first",
             "s11_multistop_without_return",
         ):
             with self.subTest(scenario=scenario_name):
