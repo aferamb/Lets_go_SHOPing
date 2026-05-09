@@ -25,6 +25,7 @@ class ScenarioSpec:
     require_loose: bool = False
     require_mixed_first_trip: bool = False
     require_multistop: bool = False
+    min_carrier_trip_locations: int = 0
 
 
 def _zero_stocks(locations: tuple[str, ...]) -> dict[str, dict[str, int]]:
@@ -178,19 +179,21 @@ SCENARIOS: tuple[ScenarioSpec, ...] = (
     ),
     ScenarioSpec(
         name="s11_multistop_without_return",
-        description="A single carrier trip should satisfy more than one location before returning.",
-        locations=("loc1", "loc2", "loc3"),
+        description="A single carrier trip should satisfy four locations before returning.",
+        locations=("loc1", "loc2", "loc3", "loc4"),
         needs={
-            "loc1": {"food": 6, "medicine": 4},
-            "loc2": {"food": 5, "medicine": 3},
-            "loc3": {"food": 4, "medicine": 5},
+            "loc1": {"food": 2, "medicine": 2},
+            "loc2": {"food": 2, "medicine": 1},
+            "loc3": {"food": 1, "medicine": 1},
+            "loc4": {"food": 1, "medicine": 0},
         },
-        depot_stock={"food": 15, "medicine": 12},
-        carrier_capacities=(18,),
+        depot_stock={"food": 6, "medicine": 4},
+        carrier_capacities=(10,),
         expected_first_delivery="loc1",
         expected_first_trip_carrier="carrier1",
+        expected_first_trip_total_load=10,
         require_carrier=True,
-        require_multistop=True,
+        min_carrier_trip_locations=4,
     ),
     ScenarioSpec(
         name="s12_combined_regression",
@@ -207,6 +210,23 @@ SCENARIOS: tuple[ScenarioSpec, ...] = (
         expected_carrier_sequence=("carrier2", "carrier2"),
         require_carrier=True,
         require_multistop=True,
+    ),
+    ScenarioSpec(
+        name="s13_maximize_stops_before_carrier_size",
+        description="A larger carrier should be selected when it can serve more locations in one trip.",
+        locations=("loc1", "loc2", "loc3"),
+        needs={
+            "loc1": {"food": 3, "medicine": 2},
+            "loc2": {"food": 2, "medicine": 2},
+            "loc3": {"food": 2, "medicine": 2},
+        },
+        depot_stock={"food": 7, "medicine": 6},
+        carrier_capacities=(9, 13),
+        expected_first_delivery="loc1",
+        expected_first_trip_carrier="carrier2",
+        expected_first_trip_total_load=13,
+        require_carrier=True,
+        min_carrier_trip_locations=3,
     ),
 )
 
@@ -243,9 +263,10 @@ def _first_trip_load(actions: list[Action]) -> tuple[str | None, int, set[str]]:
     return carrier_name, total, contents
 
 
-def _has_multistop_trip(actions: list[Action]) -> bool:
+def _max_carrier_trip_locations(actions: list[Action]) -> int:
     active_locations: list[str] = []
     in_trip = False
+    max_locations = 0
     for action in actions:
         if action.name == "!fly-with-carrier" and action.args[2] == "depot":
             in_trip = True
@@ -255,10 +276,9 @@ def _has_multistop_trip(actions: list[Action]) -> bool:
             active_locations.append(action.args[2])
             continue
         if in_trip and action.name == "!fly-with-carrier" and action.args[3] == "depot":
-            if len(dict.fromkeys(active_locations)) >= 2:
-                return True
+            max_locations = max(max_locations, len(dict.fromkeys(active_locations)))
             in_trip = False
-    return False
+    return max_locations
 
 
 def validate_scenario(spec: ScenarioSpec, result: RunResult) -> list[str]:
@@ -302,8 +322,15 @@ def validate_scenario(spec: ScenarioSpec, result: RunResult) -> list[str]:
         errors.append(
             f"Expected mixed contents on the first trip, got {sorted(first_trip_contents)}."
         )
-    if spec.require_multistop and not _has_multistop_trip(actions):
-        errors.append("Expected a multi-stop carrier trip before returning to the depot.")
+    min_trip_locations = max(spec.min_carrier_trip_locations, 2 if spec.require_multistop else 0)
+    if min_trip_locations:
+        max_trip_locations = _max_carrier_trip_locations(actions)
+        if max_trip_locations < min_trip_locations:
+            errors.append(
+                "Expected a carrier trip with at least "
+                f"{min_trip_locations} locations before returning to the depot, "
+                f"got {max_trip_locations}."
+            )
 
     return errors
 

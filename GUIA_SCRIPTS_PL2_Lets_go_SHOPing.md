@@ -365,7 +365,7 @@ flowchart LR
 ### `scripts/scenarios_lib.py`
 
 - **Para que sirve:** define el contrato funcional del ejercicio 1.2.
-- **Que hace:** declara los `12` escenarios obligatorios, construye problemas concretos a partir de ellos y valida que el primer plan obtenido cumple las condiciones esperadas.
+- **Que hace:** declara los `13` escenarios de validacion avanzada, construye problemas concretos a partir de ellos y valida que el primer plan obtenido cumple las condiciones esperadas.
 - **Que scripts lo usan:** `run_scenarios.py` y los tests.
 - **Salida propia:** no tiene salida directa de consola.
 - **Que devuelve o genera:** ofrece:

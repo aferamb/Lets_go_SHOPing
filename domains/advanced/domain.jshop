@@ -127,19 +127,18 @@
        (move-drone ?d depot)))
 
     (:method (dispatch-carrier-trip ?loc ?total)
-      multistop-smallest-fitting-combined
-      (:sort-by ?priority < (and (drone ?d)
-                                 (drone-at ?d ?where)
-                                 (pending-location ?extra ?extra-total)
-                                 (different ?extra ?loc)
-                                 (assign ?combined-total (call + ?total ?extra-total))
-                                 (carrier ?carrier)
-                                 (carrier-at ?carrier depot)
-                                 (carrier-capacity ?carrier ?cap)
-                                 (call >= ?cap ?combined-total)
-                                 (not (smaller-sufficient-carrier ?combined-total ?cap))
-                                 (assign ?priority (call - (call * ?cap 1000) ?extra-total))))
-      ((execute-two-stop-exact ?d ?carrier ?loc ?extra))
+      multistop-max-stops
+      (:sort-by ?route-cap > (and (drone ?d)
+                                  (drone-at ?d ?where)
+                                  (carrier ?route-carrier)
+                                  (carrier-at ?route-carrier depot)
+                                  (carrier-capacity ?route-carrier ?route-cap)
+                                  (not (larger-available-carrier ?route-cap))
+                                  (pending-location ?extra ?extra-total)
+                                  (different ?extra ?loc)
+                                  (call >= ?route-cap (call + ?total ?extra-total))
+                                  (assign ?free (call - ?route-cap ?total))))
+      ((build-route-max-stops ?d ?total ?free (?loc . nil)))
 
       one-stop-smallest-fitting
       (:sort-by ?cap < (and (drone ?d)
@@ -170,16 +169,35 @@
        (deliver-exact-needs ?d ?carrier ?loc)
        (:immediate !fly-with-carrier ?d ?carrier ?loc depot)))
 
-    (:method (execute-two-stop-exact ?d ?carrier ?loc1 ?loc2)
-      exact-two-stop-route
+    (:method (execute-route-exact ?d ?carrier ?route)
+      exact-route
       ()
       ((move-drone ?d depot)
-       (load-two-stop-needs ?d ?carrier ?loc1 ?loc2)
-       (:immediate !fly-with-carrier ?d ?carrier depot ?loc1)
-       (deliver-exact-needs ?d ?carrier ?loc1)
-       (:immediate !fly-with-carrier ?d ?carrier ?loc1 ?loc2)
-       (deliver-exact-needs ?d ?carrier ?loc2)
-       (:immediate !fly-with-carrier ?d ?carrier ?loc2 depot)))
+       (load-route-needs ?d ?carrier ?route)
+       (deliver-route ?d ?carrier depot ?route)))
+
+    (:method (build-route-max-stops ?d ?route-total ?free ?route)
+      add-smallest-fitting-extra
+      (:sort-by ?extra-total < (and (pending-location ?extra ?extra-total)
+                                    (call <= ?extra-total ?free)
+                                    (not (route-contains ?extra ?route))
+                                    (append-location ?route ?extra ?new-route)
+                                    (assign ?new-total (call + ?route-total ?extra-total))
+                                    (assign ?new-free (call - ?free ?extra-total))))
+      ((build-route-max-stops ?d ?new-total ?new-free ?new-route))
+
+      route-ready
+      ()
+      ((select-carrier-and-execute-route ?d ?route-total ?route)))
+
+    (:method (select-carrier-and-execute-route ?d ?route-total ?route)
+      smallest-route-carrier
+      (:sort-by ?cap < (and (carrier ?carrier)
+                            (carrier-at ?carrier depot)
+                            (carrier-capacity ?carrier ?cap)
+                            (call >= ?cap ?route-total)
+                            (not (smaller-sufficient-carrier ?route-total ?cap))))
+      ((execute-route-exact ?d ?carrier ?route)))
 
     (:method (execute-one-stop-partial ?d ?carrier ?cap ?loc)
       partial-food-only
@@ -300,16 +318,28 @@
       ((deliver-content ?d ?carrier ?loc food ?food)
        (deliver-content ?d ?carrier ?loc medicine ?medicine)))
 
-    (:method (load-two-stop-needs ?d ?carrier ?loc1 ?loc2)
-      aggregate-two-stops
-      ((need ?loc1 food ?food1)
-       (need ?loc1 medicine ?medicine1)
-       (need ?loc2 food ?food2)
-       (need ?loc2 medicine ?medicine2)
-       (assign ?food-total (call + ?food1 ?food2))
-       (assign ?medicine-total (call + ?medicine1 ?medicine2)))
-      ((load-content ?d ?carrier food ?food-total)
-       (load-content ?d ?carrier medicine ?medicine-total)))
+    (:method (load-route-needs ?d ?carrier (?loc . ?rest))
+      load-next-stop
+      ()
+      ((load-exact-needs ?d ?carrier ?loc)
+       (load-route-needs ?d ?carrier ?rest)))
+
+    (:method (load-route-needs ?d ?carrier nil)
+      load-route-done
+      ()
+      ())
+
+    (:method (deliver-route ?d ?carrier ?from (?loc . ?rest))
+      deliver-next-stop
+      ()
+      ((:immediate !fly-with-carrier ?d ?carrier ?from ?loc)
+       (deliver-exact-needs ?d ?carrier ?loc)
+       (deliver-route ?d ?carrier ?loc ?rest)))
+
+    (:method (deliver-route ?d ?carrier ?from nil)
+      return-to-depot
+      ()
+      ((:immediate !fly-with-carrier ?d ?carrier ?from depot)))
 
     (:method (load-content ?d ?carrier ?content ?qty)
       load-positive
@@ -358,6 +388,23 @@
        (carrier-capacity ?carrier ?other-cap)
        (call >= ?other-cap ?total)
        (call < ?other-cap ?cap)))
+
+    (:- (route-contains ?loc (?loc . ?rest)) nil)
+
+    (:- (route-contains ?loc (?other . ?rest))
+      ((different ?loc ?other)
+       (route-contains ?loc ?rest)))
+
+    (:- (append-location nil ?loc (?loc . nil)) nil)
+
+    (:- (append-location (?head . ?tail) ?loc (?head . ?new-tail))
+      ((append-location ?tail ?loc ?new-tail)))
+
+    (:- (larger-available-carrier ?cap)
+      ((carrier ?carrier)
+       (carrier-at ?carrier depot)
+       (carrier-capacity ?carrier ?other-cap)
+       (call > ?other-cap ?cap)))
 
     (:- (same ?x ?x) nil)
     (:- (different ?x ?y) ((not (same ?x ?y))))

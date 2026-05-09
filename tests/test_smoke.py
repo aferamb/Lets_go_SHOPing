@@ -45,6 +45,7 @@ class SmokeTests(unittest.TestCase):
             "s08_choose_largest_if_none_fit",
             "s10_serve_highest_need_first",
             "s11_multistop_without_return",
+            "s13_maximize_stops_before_carrier_size",
         ):
             with self.subTest(scenario=scenario_name):
                 with tempfile.TemporaryDirectory(dir=ROOT / ".cache") as temp_dir:

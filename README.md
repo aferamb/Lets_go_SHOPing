@@ -203,4 +203,4 @@ python3 scripts/export_pl1_ff_baseline.py
 
 - Official validation for the advanced domain is done with one drone.
 - The generators still accept multiple drones for exploratory use, but the HTN policy is intentionally monodrone and deterministic.
-- The advanced policy serves the highest-need location first and only adds extra full stops that fit in the remaining carrier capacity.
+- The advanced policy serves the highest-need location first and can extend a carrier route to n full stops, bounded by pending needs and carrier capacity.
